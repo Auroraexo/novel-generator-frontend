@@ -40,19 +40,19 @@ export async function generateInspiration(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ genre, subgenre }),
   });
-  if (!res.ok) throw new Error('Failed to generate inspiration');
+  if (!res.ok) throw new Error('生成灵感失败');
   return res.json();
 }
 
 export async function fetchProjects(): Promise<Project[]> {
   const res = await fetch(`${API_BASE}/projects`);
-  if (!res.ok) throw new Error('Failed to fetch projects');
+  if (!res.ok) throw new Error('获取项目列表失败');
   return res.json();
 }
 
 export async function fetchProject(id: string): Promise<Project> {
   const res = await fetch(`${API_BASE}/projects/${id}`);
-  if (!res.ok) throw new Error('Failed to fetch project');
+  if (!res.ok) throw new Error('获取项目失败');
   return res.json();
 }
 
@@ -68,20 +68,20 @@ export async function createProject(data: {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
-  if (!res.ok) throw new Error('Failed to create project');
+  if (!res.ok) throw new Error('创建项目失败');
   return res.json();
 }
 
 export async function deleteProject(id: string): Promise<void> {
   const res = await fetch(`${API_BASE}/projects/${id}`, { method: 'DELETE' });
-  if (!res.ok) throw new Error('Failed to delete project');
+  if (!res.ok) throw new Error('删除项目失败');
 }
 
 export async function generateSetting(projectId: string) {
   const res = await fetch(`${API_BASE}/projects/${projectId}/setting/generate`, {
     method: 'POST',
   });
-  if (!res.ok) throw new Error('Failed to generate setting');
+  if (!res.ok) throw new Error('生成设定失败');
   return res.json();
 }
 
@@ -91,7 +91,7 @@ export async function updateSetting(projectId: string, setting: any) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(setting),
   });
-  if (!res.ok) throw new Error('Failed to update setting');
+  if (!res.ok) throw new Error('更新设定失败');
   return res.json();
 }
 
@@ -99,7 +99,7 @@ export async function generateOutline(projectId: string) {
   const res = await fetch(`${API_BASE}/projects/${projectId}/outline/generate`, {
     method: 'POST',
   });
-  if (!res.ok) throw new Error('Failed to generate outline');
+  if (!res.ok) throw new Error('生成大纲失败');
   return res.json();
 }
 
@@ -116,7 +116,7 @@ export async function regenerateOutlineChapter(
       body: JSON.stringify({ feedback }),
     },
   );
-  if (!res.ok) throw new Error('Failed to regenerate outline chapter');
+  if (!res.ok) throw new Error('重新生成章节大纲失败');
   return res.json();
 }
 
@@ -125,7 +125,7 @@ export async function generateChapter(projectId: string, index: number) {
     `${API_BASE}/projects/${projectId}/chapters/${index}/generate`,
     { method: 'POST' },
   );
-  if (!res.ok) throw new Error('Failed to generate chapter');
+  if (!res.ok) throw new Error('生成章节失败');
   return res.json();
 }
 
@@ -134,7 +134,7 @@ export async function generateAllChapters(projectId: string) {
     `${API_BASE}/projects/${projectId}/chapters/generate-all`,
     { method: 'POST' },
   );
-  if (!res.ok) throw new Error('Failed to start generation');
+  if (!res.ok) throw new Error('启动生成失败');
   return res.json();
 }
 
@@ -152,7 +152,7 @@ export async function rewriteChapter(
       body: JSON.stringify({ feedback, keepElements }),
     },
   );
-  if (!res.ok) throw new Error('Failed to rewrite chapter');
+  if (!res.ok) throw new Error('重写章节失败');
   return res.json();
 }
 
