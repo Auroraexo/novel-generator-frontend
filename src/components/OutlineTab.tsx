@@ -64,7 +64,7 @@ export default function OutlineTab({ project, onUpdate }: Props) {
           disabled={generating || !project.setting}
           className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
         >
-          {generating ? '生成中...' : '生成章纲'}
+          {generating ? '生成中（约 3–5 分钟，请勿重复点击）...' : '生成章纲'}
         </button>
         {error && <p className="mt-3 text-red-500 text-sm">{error}</p>}
       </div>
@@ -82,7 +82,7 @@ export default function OutlineTab({ project, onUpdate }: Props) {
           disabled={generating}
           className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50"
         >
-          {generating ? '重新生成中...' : '重新生成全部'}
+          {generating ? '重新生成中（约 3–5 分钟）...' : '重新生成全部'}
         </button>
       </div>
 

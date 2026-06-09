@@ -125,7 +125,7 @@ export async function generateChapter(projectId: string, index: number) {
     `${API_BASE}/projects/${projectId}/chapters/${index}/generate`,
     { method: 'POST' },
   );
-  if (!res.ok) throw new Error('生成章节失败');
+  if (!res.ok) throw new Error('启动章节生成失败');
   return res.json();
 }
 
@@ -134,8 +134,70 @@ export async function generateAllChapters(projectId: string) {
     `${API_BASE}/projects/${projectId}/chapters/generate-all`,
     { method: 'POST' },
   );
-  if (!res.ok) throw new Error('启动生成失败');
+  if (!res.ok) throw new Error('启动批量生成失败');
   return res.json();
+}
+
+export async function generateRemainingChapters(projectId: string) {
+  const res = await fetch(
+    `${API_BASE}/projects/${projectId}/chapters/generate-remaining`,
+    { method: 'POST' },
+  );
+  if (!res.ok) throw new Error('启动剩余章节生成失败');
+  return res.json();
+}
+
+export interface GenerationEvent {
+  projectId: string;
+  type: 'progress' | 'chapter-complete' | 'error' | 'done';
+  data: {
+    message?: string;
+    index?: number;
+    total?: number;
+    stage?: string;
+    pending?: number;
+  };
+}
+
+export function subscribeGenerationEvents(
+  projectId: string,
+  handlers: {
+    onProgress?: (event: GenerationEvent) => void;
+    onChapterComplete?: (event: GenerationEvent) => void;
+    onError?: (event: GenerationEvent) => void;
+    onDone?: (event: GenerationEvent) => void;
+  },
+) {
+  const es = createEventSource(projectId);
+
+  es.onmessage = (message) => {
+    const event = JSON.parse(message.data) as GenerationEvent;
+
+    switch (event.type) {
+      case 'progress':
+        handlers.onProgress?.(event);
+        break;
+      case 'chapter-complete':
+        handlers.onChapterComplete?.(event);
+        break;
+      case 'error':
+        handlers.onError?.(event);
+        break;
+      case 'done':
+        handlers.onDone?.(event);
+        break;
+    }
+  };
+
+  es.onerror = () => {
+    handlers.onError?.({
+      projectId,
+      type: 'error',
+      data: { message: '生成进度连接中断' },
+    });
+  };
+
+  return es;
 }
 
 export async function rewriteChapter(

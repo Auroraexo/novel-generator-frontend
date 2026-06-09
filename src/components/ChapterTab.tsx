@@ -1,11 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Project,
   generateChapter,
   generateAllChapters,
+  generateRemainingChapters,
   rewriteChapter,
+  subscribeGenerationEvents,
 } from '@/lib/api';
 
 interface Props {
@@ -22,35 +24,120 @@ export default function ChapterTab({ project, onUpdate }: Props) {
   const [feedback, setFeedback] = useState('');
   const [keepElements, setKeepElements] = useState('');
   const [error, setError] = useState('');
+  const [progressText, setProgressText] = useState('');
+  const [activeChapterIdx, setActiveChapterIdx] = useState<number | null>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
 
   const chapters = project.chapters || [];
   const outlines = project.outlines || [];
   const selectedChapter = chapters.find((c) => c.index === selectedIdx);
   const selectedOutline = outlines.find((o) => o.index === selectedIdx);
+  const completedCount = chapters.length;
+  const remainingCount = outlines.length - completedCount;
+
+  useEffect(() => {
+    return () => {
+      eventSourceRef.current?.close();
+    };
+  }, []);
+
+  function closeEventSource() {
+    eventSourceRef.current?.close();
+    eventSourceRef.current = null;
+  }
+
+  function startListening() {
+    closeEventSource();
+
+    eventSourceRef.current = subscribeGenerationEvents(project.id, {
+      onProgress: (event) => {
+        if (event.data.message) {
+          setProgressText(event.data.message);
+        }
+        if (event.data.index) {
+          setActiveChapterIdx(event.data.index);
+          setSelectedIdx(event.data.index);
+        }
+      },
+      onChapterComplete: (event) => {
+        const { index, total } = event.data;
+        if (index && total) {
+          setProgressText(`第 ${index}/${total} 章已完成，继续生成中...`);
+          setActiveChapterIdx(index);
+          setSelectedIdx(index);
+        }
+        onUpdate();
+      },
+      onError: (event) => {
+        setError(event.data.message || '生成失败');
+        setGenerating(false);
+        setGeneratingAll(false);
+        setActiveChapterIdx(null);
+        setProgressText('');
+        closeEventSource();
+      },
+      onDone: (event) => {
+        setProgressText(event.data.message || '生成完成');
+        setGenerating(false);
+        setGeneratingAll(false);
+        setActiveChapterIdx(null);
+        closeEventSource();
+        onUpdate();
+      },
+    });
+  }
 
   async function handleGenerate(index: number) {
     setGenerating(true);
+    setGeneratingAll(false);
     setError('');
+    setProgressText(`第 ${index} 章排队中...`);
+    setActiveChapterIdx(index);
+    startListening();
+
     try {
       await generateChapter(project.id, index);
-      onUpdate();
+      setProgressText(`正在生成第 ${index} 章，请稍候...`);
     } catch (e: any) {
       setError(e.message || '生成失败');
-    } finally {
       setGenerating(false);
+      setActiveChapterIdx(null);
+      setProgressText('');
+      closeEventSource();
     }
   }
 
   async function handleGenerateAll() {
     setGeneratingAll(true);
+    setGenerating(false);
     setError('');
+    setProgressText(`准备生成全部 ${outlines.length} 章...`);
+    startListening();
+
     try {
       await generateAllChapters(project.id);
-      onUpdate();
     } catch (e: any) {
       setError(e.message || '批量生成失败');
-    } finally {
       setGeneratingAll(false);
+      setProgressText('');
+      closeEventSource();
+    }
+  }
+
+  async function handleGenerateRemaining() {
+    setGeneratingAll(true);
+    setGenerating(false);
+    setError('');
+    setProgressText(`准备生成剩余 ${remainingCount} 章...`);
+    startListening();
+
+    try {
+      await generateRemainingChapters(project.id);
+    } catch (e: any) {
+      setError(e.message || '批量生成失败');
+      setGeneratingAll(false);
+      setProgressText('');
+      closeEventSource();
     }
   }
 
@@ -71,6 +158,8 @@ export default function ChapterTab({ project, onUpdate }: Props) {
     }
   }
 
+  const isBusy = generating || generatingAll;
+
   if (outlines.length === 0) {
     return (
       <div className="text-center py-12 text-gray-500">
@@ -82,20 +171,46 @@ export default function ChapterTab({ project, onUpdate }: Props) {
   return (
     <div className="flex gap-6">
       <div className="w-56 shrink-0">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-medium text-gray-700">章节列表</h3>
-          <button
-            onClick={handleGenerateAll}
-            disabled={generatingAll}
-            className="text-xs text-blue-600 hover:text-blue-800 disabled:opacity-50"
-          >
-            {generatingAll ? '生成中...' : '全部生成'}
-          </button>
+        <div className="mb-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-medium text-gray-700">章节列表</h3>
+            <span className="text-xs text-gray-400">
+              {completedCount}/{outlines.length}
+            </span>
+          </div>
+          <div className="flex flex-col gap-1">
+            {remainingCount > 0 && (
+              <button
+                onClick={handleGenerateRemaining}
+                disabled={isBusy}
+                className="w-full px-2 py-1.5 bg-blue-600 text-white rounded-lg text-xs hover:bg-blue-700 disabled:opacity-50"
+              >
+                {generatingAll ? '生成中...' : `生成剩余 ${remainingCount} 章`}
+              </button>
+            )}
+            <button
+              onClick={handleGenerateAll}
+              disabled={isBusy}
+              className="w-full px-2 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs hover:bg-gray-200 disabled:opacity-50"
+            >
+              {generatingAll ? '生成中...' : '重新生成全部'}
+            </button>
+          </div>
         </div>
+
+        {progressText && (
+          <div className="mb-3 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700">
+            {progressText}
+          </div>
+        )}
+
         <div className="space-y-1">
           {outlines.map((outline) => {
             const chapter = chapters.find((c) => c.index === outline.index);
             const isActive = selectedIdx === outline.index;
+            const isGeneratingThis =
+              activeChapterIdx === outline.index && isBusy;
+
             return (
               <button
                 key={outline.index}
@@ -110,9 +225,11 @@ export default function ChapterTab({ project, onUpdate }: Props) {
                   <span className="truncate">
                     第{outline.index}章 {outline.title}
                   </span>
-                  {chapter && (
+                  {isGeneratingThis ? (
+                    <span className="text-xs text-blue-500 ml-1">...</span>
+                  ) : chapter ? (
                     <span className="text-xs text-green-500 ml-1">&#10003;</span>
-                  )}
+                  ) : null}
                 </div>
                 {chapter && (
                   <span className="text-xs text-gray-400">
@@ -141,20 +258,21 @@ export default function ChapterTab({ project, onUpdate }: Props) {
             {selectedChapter && (
               <button
                 onClick={() => setShowRewrite(!showRewrite)}
-                className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200"
+                disabled={isBusy}
+                className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200 disabled:opacity-50"
               >
                 重写
               </button>
             )}
             <button
               onClick={() => handleGenerate(selectedIdx)}
-              disabled={generating}
+              disabled={isBusy}
               className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50"
             >
-              {generating
+              {generating && activeChapterIdx === selectedIdx
                 ? '生成中...'
                 : selectedChapter
-                  ? '重新生成'
+                  ? '重新生成本章'
                   : '生成本章'}
             </button>
           </div>
@@ -195,7 +313,9 @@ export default function ChapterTab({ project, onUpdate }: Props) {
           </div>
         ) : (
           <div className="bg-white rounded-xl border p-12 text-center text-gray-400">
-            本章尚未生成，点击「生成本章」开始创作
+            {isBusy
+              ? '章节正在后台生成，完成后会自动显示'
+              : '本章尚未生成。建议点击左侧「生成剩余 X 章」一键完成'}
           </div>
         )}
       </div>
