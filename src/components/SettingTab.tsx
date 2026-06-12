@@ -14,7 +14,7 @@ export default function SettingTab({ project, onUpdate }: Props) {
   const [editJson, setEditJson] = useState('');
   const [error, setError] = useState('');
 
-  const setting = project.setting as any;
+  const setting = project.setting as Record<string, unknown> | null;
 
   async function handleGenerate() {
     setGenerating(true);
@@ -22,8 +22,8 @@ export default function SettingTab({ project, onUpdate }: Props) {
     try {
       await generateSetting(project.id);
       onUpdate();
-    } catch (e: any) {
-      setError(e.message || '生成失败');
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : '生成失败');
     } finally {
       setGenerating(false);
     }
@@ -40,19 +40,20 @@ export default function SettingTab({ project, onUpdate }: Props) {
       await updateSetting(project.id, parsed);
       setEditing(false);
       onUpdate();
-    } catch (e: any) {
-      setError('JSON 格式错误: ' + e.message);
+    } catch (e: unknown) {
+      setError('JSON 格式错误: ' + (e instanceof Error ? e.message : ''));
     }
   }
 
   if (!setting) {
     return (
-      <div className="text-center py-12">
+      <div className="card text-center py-16 px-6">
+        <div className="text-4xl mb-3">🎭</div>
         <p className="text-gray-500 mb-4">尚未生成故事设定</p>
         <button
           onClick={handleGenerate}
           disabled={generating}
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          className="btn-primary"
         >
           {generating ? '生成中...' : '生成故事设定'}
         </button>
@@ -63,19 +64,16 @@ export default function SettingTab({ project, onUpdate }: Props) {
 
   if (editing) {
     return (
-      <div>
+      <div className="card p-5">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">编辑设定</h2>
+          <h2 className="text-lg font-semibold font-serif">编辑设定 (JSON)</h2>
           <div className="flex gap-2">
-            <button
-              onClick={handleSave}
-              className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm"
-            >
+            <button onClick={handleSave} className="btn-primary text-sm py-1.5">
               保存
             </button>
             <button
               onClick={() => setEditing(false)}
-              className="px-4 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-sm"
+              className="btn-secondary text-sm py-1.5"
             >
               取消
             </button>
@@ -85,90 +83,136 @@ export default function SettingTab({ project, onUpdate }: Props) {
         <textarea
           value={editJson}
           onChange={(e) => setEditJson(e.target.value)}
-          className="w-full h-[600px] font-mono text-sm border rounded-lg p-4 resize-none"
+          className="w-full h-[600px] font-mono text-sm border border-gray-200 rounded-lg p-4 resize-none focus:ring-2 focus:ring-gold/30"
         />
       </div>
     );
   }
 
+  const protagonist = setting.protagonist as Record<string, unknown> | undefined;
+  const antagonist = setting.antagonist as Record<string, unknown> | undefined;
+  const storyArc = setting.story_arc as Record<string, unknown> | undefined;
+  const sellingPoints = setting.selling_points as string[] | undefined;
+  const secondaryConflicts = setting.secondary_conflicts as string[] | undefined;
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-lg font-semibold">{setting.title}</h2>
+        <h2 className="text-xl font-semibold font-serif text-ink">
+          {String(setting.title)}
+        </h2>
         <div className="flex gap-2">
-          <button
-            onClick={startEdit}
-            className="px-4 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200"
-          >
-            编辑
+          <button onClick={startEdit} className="btn-secondary text-sm py-1.5">
+            编辑 JSON
           </button>
           <button
             onClick={handleGenerate}
             disabled={generating}
-            className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50"
+            className="btn-primary text-sm py-1.5"
           >
             {generating ? '重新生成中...' : '重新生成'}
           </button>
         </div>
       </div>
 
-      <div className="space-y-6">
-        <div className="bg-white rounded-xl border p-5">
-          <p className="text-gray-600 mb-2">{setting.logline}</p>
-          <span className="text-sm text-gray-400">基调: {setting.tone}</span>
+      <div className="space-y-4">
+        <div className="card p-5 border-l-4 border-l-gold">
+          <p className="text-gray-700 text-base leading-relaxed">
+            {String(setting.logline)}
+          </p>
+          <span className="inline-block mt-3 text-xs px-2.5 py-1 bg-paper-dark rounded-full text-gray-600">
+            基调：{String(setting.tone)}
+          </span>
         </div>
 
         <div className="grid md:grid-cols-2 gap-4">
-          <div className="bg-white rounded-xl border p-5">
-            <h3 className="font-medium mb-3">主角</h3>
-            <dl className="space-y-1 text-sm">
-              <div className="flex"><dt className="w-16 text-gray-500">姓名</dt><dd>{setting.protagonist?.name}</dd></div>
-              <div className="flex"><dt className="w-16 text-gray-500">年龄</dt><dd>{setting.protagonist?.age}</dd></div>
-              <div className="flex"><dt className="w-16 text-gray-500">身份</dt><dd>{setting.protagonist?.identity}</dd></div>
-              <div className="flex"><dt className="w-16 text-gray-500">性格</dt><dd>{setting.protagonist?.personality}</dd></div>
-              <div className="flex"><dt className="w-16 text-gray-500">动机</dt><dd>{setting.protagonist?.motivation}</dd></div>
-              <div className="flex"><dt className="w-16 text-gray-500">缺陷</dt><dd>{setting.protagonist?.flaw}</dd></div>
+          <div className="card p-5">
+            <h3 className="font-semibold text-ink mb-3 flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-gold" />
+              主角
+            </h3>
+            <dl className="space-y-2 text-sm">
+              {(
+                [
+                  ['姓名', protagonist?.name],
+                  ['身份', protagonist?.identity],
+                  ['性格', protagonist?.personality],
+                  ['动机', protagonist?.motivation],
+                  ['缺陷', protagonist?.flaw],
+                ] as [string, unknown][]
+              ).map(([label, val]) => (
+                <div key={String(label)} className="flex gap-2">
+                  <dt className="w-12 shrink-0 text-gray-400">{label}</dt>
+                  <dd className="text-gray-700">{String(val ?? '')}</dd>
+                </div>
+              ))}
             </dl>
           </div>
 
-          <div className="bg-white rounded-xl border p-5">
-            <h3 className="font-medium mb-3">对手</h3>
-            <dl className="space-y-1 text-sm">
-              <div className="flex"><dt className="w-16 text-gray-500">姓名</dt><dd>{setting.antagonist?.name}</dd></div>
-              <div className="flex"><dt className="w-16 text-gray-500">身份</dt><dd>{setting.antagonist?.identity}</dd></div>
-              <div className="flex"><dt className="w-16 text-gray-500">目标</dt><dd>{setting.antagonist?.goal}</dd></div>
-              <div className="flex"><dt className="w-16 text-gray-500">关系</dt><dd>{setting.antagonist?.relationship}</dd></div>
+          <div className="card p-5">
+            <h3 className="font-semibold text-ink mb-3 flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+              对手
+            </h3>
+            <dl className="space-y-2 text-sm">
+              {(
+                [
+                  ['姓名', antagonist?.name],
+                  ['身份', antagonist?.identity],
+                  ['目标', antagonist?.goal],
+                  ['关系', antagonist?.relationship],
+                ] as [string, unknown][]
+              ).map(([label, val]) => (
+                <div key={String(label)} className="flex gap-2">
+                  <dt className="w-12 shrink-0 text-gray-400">{label}</dt>
+                  <dd className="text-gray-700">{String(val ?? '')}</dd>
+                </div>
+              ))}
             </dl>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border p-5">
-          <h3 className="font-medium mb-3">故事弧线</h3>
-          <dl className="space-y-2 text-sm">
-            <div><dt className="text-gray-500">开篇钩子</dt><dd className="mt-0.5">{setting.story_arc?.opening_hook}</dd></div>
-            <div><dt className="text-gray-500">中段反转</dt><dd className="mt-0.5">{setting.story_arc?.midpoint_twist}</dd></div>
-            <div><dt className="text-gray-500">高潮</dt><dd className="mt-0.5">{setting.story_arc?.climax}</dd></div>
-            <div><dt className="text-gray-500">结局</dt><dd className="mt-0.5">{setting.story_arc?.resolution}</dd></div>
+        <div className="card p-5">
+          <h3 className="font-semibold text-ink mb-3">故事弧线</h3>
+          <dl className="grid sm:grid-cols-2 gap-3 text-sm">
+            {(
+              [
+                ['开篇钩子', storyArc?.opening_hook],
+                ['中段反转', storyArc?.midpoint_twist],
+                ['高潮', storyArc?.climax],
+                ['结局', storyArc?.resolution],
+              ] as [string, unknown][]
+            ).map(([label, val]) => (
+              <div key={String(label)}>
+                <dt className="text-gray-400 text-xs mb-0.5">{label}</dt>
+                <dd className="text-gray-700">{String(val ?? '')}</dd>
+              </div>
+            ))}
           </dl>
         </div>
 
-        <div className="bg-white rounded-xl border p-5">
-          <h3 className="font-medium mb-3">冲突</h3>
-          <p className="text-sm"><span className="text-gray-500">核心冲突:</span> {setting.core_conflict}</p>
-          <div className="mt-2">
-            <span className="text-sm text-gray-500">次要冲突:</span>
-            <ul className="list-disc list-inside text-sm mt-1">
-              {setting.secondary_conflicts?.map((c: string, i: number) => (
-                <li key={i}>{c}</li>
+        <div className="card p-5">
+          <h3 className="font-semibold text-ink mb-2">核心冲突</h3>
+          <p className="text-sm text-gray-700">{String(setting.core_conflict)}</p>
+          {secondaryConflicts && secondaryConflicts.length > 0 && (
+            <ul className="mt-2 space-y-1">
+              {secondaryConflicts.map((c, i) => (
+                <li key={i} className="text-sm text-gray-600 flex gap-2">
+                  <span className="text-gray-300">·</span>
+                  {c}
+                </li>
               ))}
             </ul>
-          </div>
+          )}
         </div>
 
-        {setting.selling_points && (
+        {sellingPoints && sellingPoints.length > 0 && (
           <div className="flex gap-2 flex-wrap">
-            {setting.selling_points.map((p: string, i: number) => (
-              <span key={i} className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm">
+            {sellingPoints.map((p, i) => (
+              <span
+                key={i}
+                className="px-3 py-1 bg-gold/10 text-gold-dark rounded-full text-sm border border-gold/20"
+              >
                 {p}
               </span>
             ))}

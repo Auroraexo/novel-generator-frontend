@@ -16,6 +16,7 @@ export default function OutlineTab({ project, onUpdate }: Props) {
   const [generating, setGenerating] = useState(false);
   const [regeneratingIdx, setRegeneratingIdx] = useState<number | null>(null);
   const [feedbackIdx, setFeedbackIdx] = useState<number | null>(null);
+  const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   const [feedback, setFeedback] = useState('');
   const [error, setError] = useState('');
 
@@ -31,8 +32,8 @@ export default function OutlineTab({ project, onUpdate }: Props) {
     try {
       await generateOutline(project.id);
       onUpdate();
-    } catch (e: any) {
-      setError(e.message || '生成失败');
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : '生成失败');
     } finally {
       setGenerating(false);
     }
@@ -46,8 +47,8 @@ export default function OutlineTab({ project, onUpdate }: Props) {
       setFeedbackIdx(null);
       setFeedback('');
       onUpdate();
-    } catch (e: any) {
-      setError(e.message || '重新生成失败');
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : '重新生成失败');
     } finally {
       setRegeneratingIdx(null);
     }
@@ -55,16 +56,19 @@ export default function OutlineTab({ project, onUpdate }: Props) {
 
   if (outlines.length === 0) {
     return (
-      <div className="text-center py-12">
-        <p className="text-gray-500 mb-4">
-          {project.setting ? '尚未生成章纲' : '请先生成故事设定'}
+      <div className="card text-center py-16 px-6">
+        <div className="text-4xl mb-3">📋</div>
+        <p className="text-gray-500 mb-2">
+          {project.setting ? '尚未生成章纲' : '请先在「设定」Tab 生成故事设定'}
         </p>
         <button
           onClick={handleGenerate}
           disabled={generating || !project.setting}
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          className="btn-primary mt-4"
         >
-          {generating ? '生成中（约 3–5 分钟，请勿重复点击）...' : '生成章纲'}
+          {generating
+            ? '生成中（约 3–5 分钟，请勿重复点击）...'
+            : '生成章纲'}
         </button>
         {error && <p className="mt-3 text-red-500 text-sm">{error}</p>}
       </div>
@@ -73,84 +77,112 @@ export default function OutlineTab({ project, onUpdate }: Props) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold">
-          章纲 ({outlines.length} 章)
+      <div className="flex items-center justify-between mb-5">
+        <h2 className="text-lg font-semibold font-serif">
+          章纲 · {outlines.length} 章
         </h2>
         <button
           onClick={handleGenerate}
           disabled={generating}
-          className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50"
+          className="btn-secondary text-sm py-1.5"
         >
           {generating ? '重新生成中（约 3–5 分钟）...' : '重新生成全部'}
         </button>
       </div>
 
-      {error && <p className="mb-3 text-red-500 text-sm">{error}</p>}
+      {error && (
+        <div className="mb-4 px-4 py-3 rounded-lg bg-red-50 text-red-600 text-sm">
+          {error}
+        </div>
+      )}
 
-      <div className="space-y-3">
+      <div className="space-y-2">
         {outlines.map((outline) => {
-          const data = outline.data as any;
+          const data = outline.data as Record<string, unknown>;
+          const isExpanded = expandedIdx === outline.index;
+
           return (
-            <div
-              key={outline.id}
-              className="bg-white rounded-xl border p-4"
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-blue-600">
-                      第 {outline.index} 章
-                    </span>
-                    <h3 className="font-medium text-gray-900">
-                      {outline.title}
-                    </h3>
-                  </div>
-                  <p className="text-sm text-gray-600 mt-1">
-                    {data.scene}
-                  </p>
+            <div key={outline.id} className="card overflow-hidden">
+              <button
+                type="button"
+                onClick={() =>
+                  setExpandedIdx(isExpanded ? null : outline.index)
+                }
+                className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-paper-dark/50 transition"
+              >
+                <span className="shrink-0 w-7 h-7 rounded-full bg-gold/15 text-gold-dark text-xs font-semibold flex items-center justify-center">
+                  {outline.index}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-medium text-ink truncate">
+                    {outline.title}
+                  </h3>
+                  {!isExpanded && (
+                    <p className="text-sm text-gray-500 truncate mt-0.5">
+                      {String(data.ending_hook || data.scene || '')}
+                    </p>
+                  )}
+                </div>
+                <span className="text-gray-400 text-sm shrink-0">
+                  {isExpanded ? '▲' : '▼'}
+                </span>
+              </button>
+
+              {isExpanded && (
+                <div className="px-4 pb-4 border-t border-gray-50">
+                  <p className="text-sm text-gray-600 mt-3">{String(data.scene)}</p>
                   <div className="mt-2 flex flex-wrap gap-1">
-                    {data.characters?.map((c: string, i: number) => (
+                    {(data.characters as string[] | undefined)?.map((c, i) => (
                       <span
                         key={i}
-                    className="text-xs px-2 py-0.5 bg-gray-100 rounded"
-           >
+                        className="text-xs px-2 py-0.5 bg-paper-dark rounded-full text-gray-600"
+                      >
                         {c}
                       </span>
                     ))}
                   </div>
-                  <div className="mt-2 text-sm text-gray-500">
-                    <p><span className="text-gray-400">冲突:</span> {data.conflict}</p>
-                    <p><span className="text-gray-400">爽点:</span> {data.payoff}</p>
-                    <p><span className="text-gray-400">钩子:</span> {data.ending_hook}</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() =>
-                    setFeedbackIdx(feedbackIdx === outline.index ? null : outline.index)
-                  }
-                  className="ml-4 text-sm text-gray-400 hover:text-blue-600"
-                >
-                  重新生成
-                </button>
-              </div>
-
-              {feedbackIdx === outline.index && (
-                <div className="mt-3 flex gap-2">
-                  <input
-                    type="text"
-                    value={feedback}
-                    onChange={(e) => setFeedback(e.target.value)}
-                    placeholder="输入修改诉求..."
-                    className="flex-1 border rounded-lg px-3 py-1.5 text-sm"
-                  />
+                  <dl className="mt-3 space-y-1.5 text-sm">
+                    <div>
+                      <dt className="text-gray-400 text-xs">冲突</dt>
+                      <dd className="text-gray-700">{String(data.conflict)}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-gray-400 text-xs">爽点</dt>
+                      <dd className="text-gray-700">{String(data.payoff)}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-gray-400 text-xs">章末钩子</dt>
+                      <dd className="text-gray-700">{String(data.ending_hook)}</dd>
+                    </div>
+                  </dl>
                   <button
-                    onClick={() => handleRegenerate(outline.index)}
-                    disabled={regeneratingIdx === outline.index}
-                    className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm disabled:opacity-50"
+                    onClick={() =>
+                      setFeedbackIdx(
+                        feedbackIdx === outline.index ? null : outline.index,
+                      )
+                    }
+                    className="mt-3 text-sm text-gold-dark hover:text-gold"
                   >
-                    {regeneratingIdx === outline.index ? '生成中...' : '确定'}
+                    重新生成本章
                   </button>
+                  {feedbackIdx === outline.index && (
+                    <div className="mt-2 flex gap-2">
+                      <input
+                        type="text"
+                        value={feedback}
+                        onChange={(e) => setFeedback(e.target.value)}
+                        placeholder="输入修改诉求..."
+                        className="input-field text-sm flex-1"
+                      />
+                      <button
+                        onClick={() => handleRegenerate(outline.index)}
+                        disabled={regeneratingIdx === outline.index}
+                        className="btn-primary text-sm py-1.5 shrink-0"
+                      >
+                        {regeneratingIdx === outline.index ? '...' : '确定'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -51,7 +51,9 @@ export async function fetchProjects(): Promise<Project[]> {
 }
 
 export async function fetchProject(id: string): Promise<Project> {
-  const res = await fetch(`${API_BASE}/projects/${id}`);
+  const res = await fetch(`${API_BASE}/projects/${id}`, {
+    cache: 'no-store',
+  });
   if (!res.ok) throw new Error('获取项目失败');
   return res.json();
 }
